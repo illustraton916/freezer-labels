@@ -7,3 +7,5 @@ services:
       - PRINTER_MODEL=QL-700
       - PRINTER_DEVICE=/dev/usb/lp0
       - LABEL_SIZE=62
+      - PRINT_HQ=false                    # true = чіткіше, але повільніший друк
+      - LABEL_SCALE=1.1                   # масштаб шрифтів наліпки

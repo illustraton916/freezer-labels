@@ -4,9 +4,9 @@
     "type": "frozen",
     "name": "KREPIT KANAN KANSSA",
     "note_uk": "Млинці з куркою",
+    "category": "Млинці",
     "price_per_kg": 15.0,
     "shelf_life_days": 10,
-    "date_format": "en",
     "frozen_mark": "pakastettu tuote",
     "ingredients": [
       "Taikina: maito, vehnäjauho, munat, suola, sokeri, auringonkukkaöljy.",
@@ -30,9 +30,9 @@
     "type": "deli",
     "name": "OLIVIER-SALAATTI MAKKARALLA",
     "note_uk": "Олів'є з ковбасою",
+    "category": "Салати",
     "price_per_kg": 15.0,
     "shelf_life_days": 10,
-    "date_format": "numeric",
     "ingredients_text": "keitetty peruna, porkkana, keitetty makkara, keitetty kananmuna, suolakurkku, herneet, majoneesi, suola, pippuri."
   }
 ]

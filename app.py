@@ -23,22 +23,30 @@ PRODUCTS_FILE = os.environ.get("PRODUCTS_FILE", "products.json")
 PRINT_MODE = os.environ.get("PRINT_MODE", "real").lower()
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/app/output")
 
+# false = швидший друк (стандартна якість), true = чіткіше але повільніше
+PRINT_HQ = os.environ.get("PRINT_HQ", "false").lower() in ("1", "true", "yes")
+
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REG  = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 WIDTH  = 696   # друкована ширина 62мм стрічки @300dpi, у пікселях
 MARGIN = 20
 
-# Шрифти
-F_NAME      = ImageFont.truetype(FONT_BOLD, 46)
-F_MARK      = ImageFont.truetype(FONT_REG, 26)
-F_H         = ImageFont.truetype(FONT_BOLD, 30)
-F_BODY      = ImageFont.truetype(FONT_REG, 26)
-F_BODY_BOLD = ImageFont.truetype(FONT_BOLD, 26)
-F_PRICE     = ImageFont.truetype(FONT_BOLD, 30)
+# Масштаб шрифтів наліпки (1.1 = на 10% більші за базовий дизайн)
+SCALE = float(os.environ.get("LABEL_SCALE", "1.1"))
 
-EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+def _fs(px):
+    return max(1, round(px * SCALE))
+
+
+# Шрифти
+F_NAME      = ImageFont.truetype(FONT_BOLD, _fs(46))
+F_MARK      = ImageFont.truetype(FONT_REG, _fs(26))
+F_H         = ImageFont.truetype(FONT_BOLD, _fs(30))
+F_BODY      = ImageFont.truetype(FONT_REG, _fs(26))
+F_BODY_BOLD = ImageFont.truetype(FONT_BOLD, _fs(26))
+F_PRICE     = ImageFont.truetype(FONT_BOLD, _fs(30))
 
 app = Flask(__name__)
 app.secret_key = "food-labels"
@@ -121,18 +129,17 @@ def build_product_from_form(form, existing_id=None):
         raise ValueError("назва обов'язкова")
     price = parse_num(form.get("price_per_kg"), "ціна за кг")
     days = parse_int(form.get("shelf_life_days"), "термін (днів)")
-    date_format = (form.get("date_format") or "numeric").strip()
-    if date_format not in ("en", "numeric"):
-        date_format = "numeric"
 
     pid = existing_id or unique_slug(name, load_products())
     p = {"id": pid, "type": ptype, "name": name}
     note = (form.get("note_uk") or "").strip()
     if note:
         p["note_uk"] = note
+    cat = (form.get("category") or "").strip()
+    if cat:
+        p["category"] = cat
     p["price_per_kg"] = price
     p["shelf_life_days"] = days
-    p["date_format"] = date_format
 
     if ptype == "frozen":
         fm = (form.get("frozen_mark") or "").strip()
@@ -166,9 +173,9 @@ def product_to_fields(p):
         "type": p.get("type", "frozen"),
         "name": p.get("name", ""),
         "note_uk": p.get("note_uk", ""),
+        "category": p.get("category", ""),
         "price_per_kg": p.get("price_per_kg", ""),
         "shelf_life_days": p.get("shelf_life_days", ""),
-        "date_format": p.get("date_format", "numeric"),
         "frozen_mark": p.get("frozen_mark", ""),
         "ingredients": "\n".join(p.get("ingredients", [])),
         "allergens": p.get("allergens", ""),
@@ -214,10 +221,10 @@ def fmt_weight(weight_g):
     return f"{int(round(weight_g))} g"
 
 
-def fmt_date(d, fmt):
-    if fmt == "en":                       # 18 Jul 2026
-        return f"{d.day} {EN_MONTHS[d.month - 1]} {d.year}"
-    return f"{d:%d.%m.%Y}"                # 18.07.2026
+def fmt_date(d, fmt=None):
+    # Завжди числовий формат 18.07.2026 (fmt у сигнатурі — для сумісності
+    # зі старими продуктами, де ще збережено date_format)
+    return f"{d:%d.%m.%Y}"
 
 
 # --------------------- рушій розкладки --------------------------
@@ -311,9 +318,8 @@ def render_frozen(p, weight_g):
 
     made = date.today()
     best = made + timedelta(days=p["shelf_life_days"])
-    df = p.get("date_format", "numeric")
-    c.text(f"Valmistuspäivä: {fmt_date(made, df)}", F_BODY)
-    c.text(f"Parasta ennen: {fmt_date(best, df)}", F_BODY)
+    c.text(f"Valmistuspäivä: {fmt_date(made)}", F_BODY)
+    c.text(f"Parasta ennen: {fmt_date(best)}", F_BODY)
     c.gap(8)
 
     if weight_g:
@@ -337,15 +343,14 @@ def render_deli(p, weight_g):
     if weight_g:
         c.text_fit(f"Paino: {fmt_weight(weight_g)} | "
                    f"Hinta: {eur(calc_price(weight_g, p['price_per_kg']))} "
-                   f"({rate(p['price_per_kg'])})", FONT_BOLD, 30, 22)
+                   f"({rate(p['price_per_kg'])})", FONT_BOLD, _fs(30), _fs(22))
     else:
-        c.text_fit(f"Paino: ______ | Hinta: {rate(p['price_per_kg'])}", FONT_BOLD, 30, 22)
+        c.text_fit(f"Paino: ______ | Hinta: {rate(p['price_per_kg'])}", FONT_BOLD, _fs(30), _fs(22))
 
     made = date.today()
     best = made + timedelta(days=p["shelf_life_days"])
-    df = p.get("date_format", "numeric")
-    c.text(f"Valmistettu: {fmt_date(made, df)}", F_BODY)
-    c.text(f"Parasta ennen: {fmt_date(best, df)}", F_BODY)
+    c.text(f"Valmistettu: {fmt_date(made)}", F_BODY)
+    c.text(f"Parasta ennen: {fmt_date(best)}", F_BODY)
     return c.finish()
 
 
@@ -374,7 +379,7 @@ def print_label(img, qty=1):
     instructions = convert(
         qlr=qlr, images=[img], label=LABEL_SIZE, rotate="0",
         threshold=70.0, dither=False, compress=False,
-        red=False, dpi_600=False, hq=True, cut=True,
+        red=False, dpi_600=False, hq=PRINT_HQ, cut=True,
     )
     for _ in range(max(1, int(qty))):
         send(instructions=instructions, printer_identifier=DEVICE,
@@ -416,9 +421,33 @@ PAGE = """
   button:active { background: #1e4fc4; }
   .flash { padding: 14px; border-radius: 10px; margin-bottom: 16px; font-size: 18px; }
   .ok { background: #14532d; } .err { background: #5a1620; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .topbar { display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px; }
   .adminlink { color: #9cd0ff; text-decoration: none; font-size: 16px;
                border: 1px solid #2a2f3a; padding: 8px 14px; border-radius: 10px; }
+  .toolbar { margin: 4px 0 16px; }
+  .search { width: 100%; box-sizing: border-box; font-size: 18px; padding: 12px 14px;
+            border-radius: 12px; border: 1px solid #2a2f3a; background: #11141a;
+            color: #fff; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .tab { flex: 0 0 auto; font-size: 15px; padding: 9px 16px; border: 1px solid #2a2f3a;
+         border-radius: 999px; background: #1a1d24; color: #b7bdc7; cursor: pointer;
+         font-weight: 500; transition: background .2s, color .2s, border-color .2s; }
+  .tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .cat { font-size: 12px; color: #8b93a1; margin-top: 2px; }
+  .empty { color: #8b93a1; font-size: 16px; padding: 24px 4px; display: none; }
+  @media (max-width: 520px) {
+    body { padding: 10px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    h1 { font-size: 21px; }
+    button { padding: 16px; font-size: 21px; }
+    input.w { width: 110px; } input.q { width: 72px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    body { animation: pagefade .25s ease; }
+  }
+  @keyframes pagefade { from { opacity: 0; } to { opacity: 1; } }
+  @view-transition { navigation: auto; }
 </style>
 </head>
 <body>
@@ -427,13 +456,27 @@ PAGE = """
   {% with msgs = get_flashed_messages(with_categories=true) %}
     {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
   {% endwith %}
+  <div class="toolbar">
+    <input class="search" id="search" type="search" placeholder="🔎 Пошук продукту…"
+           oninput="applyFilter()">
+    {% if categories %}
+    <div class="tabs">
+      <button type="button" class="tab active" data-cat="" onclick="setTab(this)">Усі</button>
+      {% for c in categories %}
+      <button type="button" class="tab" data-cat="{{ c }}" onclick="setTab(this)">{{ c }}</button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
   <div class="grid">
     {% for p in products %}
-    <div class="card">
+    <div class="card" data-name="{{ p.name }}" data-note="{{ p.note_uk or '' }}"
+         data-cat="{{ p.category or '' }}">
       <div class="head">
         <div>
           <div class="title">{{ p.name }}</div>
           {% if p.note_uk %}<div class="note">{{ p.note_uk }}</div>{% endif %}
+          {% if p.category %}<div class="cat">🗂 {{ p.category }}</div>{% endif %}
         </div>
         <span class="badge {{ p.type }}">{{ "заморозка" if p.type == "frozen" else "делі" }}</span>
       </div>
@@ -453,7 +496,28 @@ PAGE = """
     </div>
     {% endfor %}
   </div>
+  <div class="empty" id="empty">Нічого не знайдено 🤷</div>
   <script>
+    var activeCat = "";
+    function setTab(btn) {
+      activeCat = btn.dataset.cat;
+      document.querySelectorAll('.tab').forEach(function (t) {
+        t.classList.toggle('active', t === btn);
+      });
+      applyFilter();
+    }
+    function applyFilter() {
+      var q = (document.getElementById('search').value || '').trim().toLowerCase();
+      var shown = 0;
+      document.querySelectorAll('.card').forEach(function (card) {
+        var hay = (card.dataset.name + ' ' + card.dataset.note).toLowerCase();
+        var ok = (!q || hay.indexOf(q) !== -1) &&
+                 (!activeCat || card.dataset.cat === activeCat);
+        card.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+      document.getElementById('empty').style.display = shown ? 'none' : 'block';
+    }
     function upd(id) {
       var w = document.getElementById('w-' + id).value;
       document.getElementById('img-' + id).src =
@@ -466,9 +530,18 @@ PAGE = """
 """
 
 
+def _all_categories(products=None):
+    if products is None:
+        products = load_products()
+    return sorted({p["category"] for p in products if p.get("category")},
+                  key=str.lower)
+
+
 @app.route("/")
 def index():
-    return render_template_string(PAGE, products=load_products())
+    products = sorted(load_products(), key=lambda p: p["name"].lower())
+    return render_template_string(PAGE, products=products,
+                                  categories=_all_categories(products))
 
 
 @app.route("/preview")
@@ -531,6 +604,11 @@ ADMIN_STYLE = """
   th { color: #8b93a1; font-weight: 600; font-size: 14px; }
   td.actions { white-space: nowrap; }
   td.actions form { display: inline; }
+  @media (prefers-reduced-motion: no-preference) {
+    body { animation: pagefade .25s ease; }
+  }
+  @keyframes pagefade { from { opacity: 0; } to { opacity: 1; } }
+  @view-transition { navigation: auto; }
 """
 
 ADMIN_LIST = """
@@ -553,7 +631,7 @@ ADMIN_LIST = """
     <tbody>
     {% for p in products %}
       <tr>
-        <td>{{ p.name }}{% if p.note_uk %}<div class="note">{{ p.note_uk }}</div>{% endif %}</td>
+        <td>{{ p.name }}{% if p.note_uk %}<div class="note">{{ p.note_uk }}</div>{% endif %}{% if p.category %}<div class="note">🗂 {{ p.category }}</div>{% endif %}</td>
         <td><span class="badge {{ p.type }}">{{ 'заморозка' if p.type == 'frozen' else 'делі' }}</span></td>
         <td>{{ '%g'|format(p.price_per_kg|float) }}</td>
         <td>{{ p.shelf_life_days }} дн</td>
@@ -605,18 +683,17 @@ ADMIN_FORM = """
       <input name="name" value="{{ fv.get('name','') }}" required></div>
     <div class="field"><label>Примітка (укр., на наліпку не друкується)</label>
       <input name="note_uk" value="{{ fv.get('note_uk','') }}"></div>
+    <div class="field"><label>Категорія (для групування, напр. «Салати»)</label>
+      <input name="category" value="{{ fv.get('category','') }}" list="cats">
+      <datalist id="cats">
+        {% for c in categories %}<option value="{{ c }}">{% endfor %}
+      </datalist></div>
     <div class="grid2">
       <div class="field"><label>Ціна, €/кг</label>
         <input name="price_per_kg" value="{{ fv.get('price_per_kg','') }}" inputmode="decimal" required></div>
       <div class="field"><label>Термін, днів</label>
         <input name="shelf_life_days" value="{{ fv.get('shelf_life_days','') }}" inputmode="numeric" required></div>
     </div>
-    <div class="field"><label>Формат дати</label>
-      <select name="date_format">
-        <option value="en" {{ 'selected' if fv.get('date_format')=='en' else '' }}>18 Jul 2026 (en)</option>
-        <option value="numeric" {{ 'selected' if fv.get('date_format')=='numeric' else '' }}>18.07.2026 (numeric)</option>
-      </select></div>
-
     <fieldset class="frozen-only"><legend>Заморозка</legend>
       <div class="field"><label>Позначка типу</label>
         <input name="frozen_mark" value="{{ fv.get('frozen_mark','') }}" placeholder="pakastettu tuote"></div>
@@ -670,8 +747,9 @@ def admin():
 
 @app.route("/admin/new")
 def admin_new():
-    fv = {"type": "frozen", "date_format": "en", "frozen_mark": "pakastettu tuote"}
-    return render_template_string(ADMIN_FORM, fv=fv, title="Новий продукт")
+    fv = {"type": "frozen", "frozen_mark": "pakastettu tuote"}
+    return render_template_string(ADMIN_FORM, fv=fv, title="Новий продукт",
+                                  categories=_all_categories())
 
 
 @app.route("/admin/edit/<pid>")
@@ -681,7 +759,8 @@ def admin_edit(pid):
         flash("Продукт не знайдено", "err")
         return redirect(url_for("admin"), code=303)
     return render_template_string(ADMIN_FORM, fv=product_to_fields(p),
-                                  title="Редагувати продукт")
+                                  title="Редагувати продукт",
+                                  categories=_all_categories())
 
 
 @app.route("/admin/save", methods=["POST"])
@@ -700,7 +779,8 @@ def admin_save():
     except ValueError as e:
         flash(f"Помилка: {e}", "err")
         title = "Редагувати продукт" if existing_id else "Новий продукт"
-        return render_template_string(ADMIN_FORM, fv=request.form, title=title), 400
+        return render_template_string(ADMIN_FORM, fv=request.form, title=title,
+                                      categories=_all_categories()), 400
 
 
 @app.route("/admin/delete/<pid>", methods=["POST"])
