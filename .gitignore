@@ -1,0 +1,15 @@
+# Runtime output (mock-наліпки, надруковані PNG, тимчасові тест-скрипти)
+output/*
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Локальні перевизначення compose (за потреби)
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

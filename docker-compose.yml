@@ -1,0 +1,13 @@
+services:
+  labels:
+    build: .
+    container_name: freezer-labels
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./products.json:/app/products.json  # редагуєш продукти без перезбірки образу
+      - ./output:/app/output              # сюди падають наліпки в режимі тесту
+    environment:
+      - PRINT_MODE=mock                    # ТЕСТ: не друкує, зберігає картинку у ./output
+      - LABEL_SIZE=62
+    restart: unless-stopped

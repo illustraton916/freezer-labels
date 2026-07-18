@@ -1,0 +1,38 @@
+[
+  {
+    "id": "krepit-kanan",
+    "type": "frozen",
+    "name": "KREPIT KANAN KANSSA",
+    "note_uk": "Млинці з куркою",
+    "price_per_kg": 15.0,
+    "shelf_life_days": 10,
+    "date_format": "en",
+    "frozen_mark": "pakastettu tuote",
+    "ingredients": [
+      "Taikina: maito, vehnäjauho, munat, suola, sokeri, auringonkukkaöljy.",
+      "Täyte: kananliha, porkkana, auringonkukkaöljy, suola, mustapippuri."
+    ],
+    "allergens": "Sisältää gluteenia, munia ja maitotuotteita.",
+    "instructions": "Lämmitä paistinpannulla keskilämmöllä tai uunissa, kunnes tuote on täysin kypsä. Voidaan lämmittää mikroaaltouunissa. Älä pakasta uudelleen.",
+    "storage": "Säilytä -18 °C:ssa tai sitä alemmassa lämpötilassa.",
+    "nutrition": {
+      "energy_kj": 850,
+      "energy_kcal": 205,
+      "fat": "8 g",
+      "saturated": "2 g",
+      "carbs": "22 g",
+      "protein": "10 g",
+      "salt": "1 g"
+    }
+  },
+  {
+    "id": "olivier-makkara",
+    "type": "deli",
+    "name": "OLIVIER-SALAATTI MAKKARALLA",
+    "note_uk": "Олів'є з ковбасою",
+    "price_per_kg": 15.0,
+    "shelf_life_days": 10,
+    "date_format": "numeric",
+    "ingredients_text": "keitetty peruna, porkkana, keitetty makkara, keitetty kananmuna, suolakurkku, herneet, majoneesi, suola, pippuri."
+  }
+]

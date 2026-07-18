@@ -1,0 +1,9 @@
+services:
+  labels:
+    devices:
+      - "/dev/usb/lp0:/dev/usb/lp0"       # проброс USB-принтера в контейнер
+    environment:
+      - PRINT_MODE=real                    # реальний друк на QL-700
+      - PRINTER_MODEL=QL-700
+      - PRINTER_DEVICE=/dev/usb/lp0
+      - LABEL_SIZE=62
