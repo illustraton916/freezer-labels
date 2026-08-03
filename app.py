@@ -49,7 +49,7 @@ F_BODY_BOLD = ImageFont.truetype(FONT_BOLD, _fs(26))
 F_PRICE     = ImageFont.truetype(FONT_BOLD, _fs(30))
 
 app = Flask(__name__)
-app.secret_key = "food-labels"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-only-secret")
 
 
 # ----------------------------- дані -----------------------------
