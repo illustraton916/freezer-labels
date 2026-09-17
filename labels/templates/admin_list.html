@@ -1,0 +1,35 @@
+{% extends "admin_base.html" %}
+{% block title %}Керування продуктами{% endblock %}
+{% block body %}
+  <div class="topbar">
+    <h1>⚙️ Керування продуктами</h1>
+    <div>
+      <a class="lnk" href="{{ url_for('index') }}">← До друку</a>
+      <a class="btn add" href="{{ url_for('admin_new') }}">+ Додати продукт</a>
+    </div>
+  </div>
+  {% if products %}
+  <table>
+    <thead><tr><th>Назва</th><th>Тип</th><th>€/кг</th><th>Термін</th><th></th></tr></thead>
+    <tbody>
+    {% for p in products %}
+      <tr>
+        <td>{{ p.name }}{% if p.note_uk %}<div class="note">{{ p.note_uk }}</div>{% endif %}{% if p.category %}<div class="note">🗂 {{ p.category }}</div>{% endif %}</td>
+        <td><span class="badge {{ p.type }}">{{ 'заморозка' if p.type == 'frozen' else 'делі' }}</span></td>
+        <td>{{ '%g'|format(p.price_per_kg|float) }}</td>
+        <td>{{ p.shelf_life_days }} дн</td>
+        <td class="actions">
+          <a class="btn" href="{{ url_for('admin_edit', pid=p.id) }}">Редагувати</a>
+          <form method="post" action="{{ url_for('admin_delete', pid=p.id) }}"
+                onsubmit="return confirm('Видалити «{{ p.name }}»?');">
+            <button class="btn del" type="submit">Видалити</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="note">Ще немає продуктів. Натисни «Додати продукт».</p>
+  {% endif %}
+{% endblock %}

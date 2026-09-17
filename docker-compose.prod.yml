@@ -1,7 +1,16 @@
+---
+# Оверлей «рендерер сам по собі на бойовій машині» (без Node-бекенду):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Коли підніметься весь Mylly Kitchen, штатний шлях інший — кореневий компоуз
+# mylly-kitchen (db + api + renderer), а цей файл лишається аварійним.
+
 services:
   labels:
     devices:
-      - "/dev/usb/lp0:/dev/usb/lp0"       # проброс USB-принтера в контейнер
+      # Симлінк, а не /dev/usb/lp0 напряму: перевтикання принтера перенумеровує
+      # lp0 → lp1 і мовчки ламає друк. Правило udev — ops/udev/99-brother-ql.rules
+      # у mylly-kitchen. Якщо симлінка ще немає, поверни тут /dev/usb/lp0.
+      - "/dev/brother-ql:/dev/usb/lp0"    # проброс USB-принтера в контейнер
     environment:
       - PRINT_MODE=real                    # реальний друк на QL-700
       - PRINTER_MODEL=QL-700
@@ -9,3 +18,9 @@ services:
       - LABEL_SIZE=62
       - PRINT_HQ=false                    # true = чіткіше, але повільніший друк
       - LABEL_SCALE=1.1                   # масштаб шрифтів наліпки
+      - ENABLE_LEGACY_UI=true             # «розбий скло» живий до кінця Ф7
+      - TZ=Europe/Helsinki                # часовий пояс кухні (див. базовий компоуз)
+      # Підписує cookie з flash-повідомленнями старого UI (сесій там немає).
+      # Порожнє оточення = дефолт «dev-only-secret»: для loopback-інтерфейсу
+      # це не діра, але на проді задай своє значення в оточенні.
+      - SECRET_KEY=${SECRET_KEY:-dev-only-secret}

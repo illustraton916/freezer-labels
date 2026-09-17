@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Наліпки — Друк</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px;
+         background: #0f1115; color: #e8eaed; }
+  h1 { font-size: 24px; margin: 8px 4px 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 16px; align-items: start; }
+  .card { background: #1a1d24; border: 1px solid #2a2f3a; border-radius: 14px;
+          padding: 14px; }
+  .head { display: flex; justify-content: space-between; align-items: baseline;
+          gap: 8px; margin-bottom: 10px; }
+  .title { font-size: 18px; font-weight: 600; }
+  .note { font-size: 13px; color: #8b93a1; }
+  .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .badge.frozen { background: #1e3a5f; color: #9cd0ff; }
+  .badge.deli   { background: #14532d; color: #9be3ad; }
+  .card img { width: 100%; background: #fff; border-radius: 8px; display: block; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  label.f { font-size: 14px; color: #b7bdc7; }
+  input { font-size: 20px; padding: 10px; border-radius: 10px;
+          border: 1px solid #333; background: #11141a; color: #fff; width: 100%; }
+  input.w { width: 100px; } input.q { width: 64px; }
+  button { flex: 1; font-size: 20px; padding: 14px; border: 0; border-radius: 10px;
+           background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
+  button:active { background: #1e4fc4; }
+  .flash { padding: 14px; border-radius: 10px; margin-bottom: 16px; font-size: 18px; }
+  .ok { background: #14532d; } .err { background: #5a1620; }
+  .topbar { display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px; }
+  .adminlink { color: #9cd0ff; text-decoration: none; font-size: 16px;
+               border: 1px solid #2a2f3a; padding: 8px 14px; border-radius: 10px; }
+  .toolbar { margin: 4px 0 16px; }
+  .search { width: 100%; box-sizing: border-box; font-size: 18px; padding: 12px 14px;
+            border-radius: 12px; border: 1px solid #2a2f3a; background: #11141a;
+            color: #fff; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .tab { flex: 0 0 auto; font-size: 15px; padding: 9px 16px; border: 1px solid #2a2f3a;
+         border-radius: 999px; background: #1a1d24; color: #b7bdc7; cursor: pointer;
+         font-weight: 500; transition: background .2s, color .2s, border-color .2s; }
+  .tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .cat { font-size: 12px; color: #8b93a1; margin-top: 2px; }
+  .card.blocked { border-color: #7f2230; }
+  .blocked-note { margin-top: 12px; padding: 12px; border-radius: 10px;
+                  background: #3a0f18; border: 1px solid #7f2230; color: #ffc9d1;
+                  font-size: 14px; line-height: 1.45; }
+  .blocked-note b { color: #fff; }
+  button[disabled] { background: #3a3f4a; color: #9aa1ad; cursor: not-allowed; }
+  .empty { color: #8b93a1; font-size: 16px; padding: 24px 4px; display: none; }
+  @media (max-width: 520px) {
+    body { padding: 10px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    h1 { font-size: 21px; }
+    button { padding: 16px; font-size: 21px; }
+    input.w { width: 110px; } input.q { width: 72px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    body { animation: pagefade .25s ease; }
+  }
+  @keyframes pagefade { from { opacity: 0; } to { opacity: 1; } }
+  @view-transition { navigation: auto; }
+</style>
+</head>
+<body>
+  <div class="topbar"><h1>🏷️ Друк наліпок</h1>
+    <a class="adminlink" href="{{ url_for('admin') }}">⚙️ Керування</a></div>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  <div class="toolbar">
+    <input class="search" id="search" type="search" placeholder="🔎 Пошук продукту…"
+           oninput="applyFilter()">
+    {% if categories %}
+    <div class="tabs">
+      <button type="button" class="tab active" data-cat="" onclick="setTab(this)">Усі</button>
+      {% for c in categories %}
+      <button type="button" class="tab" data-cat="{{ c }}" onclick="setTab(this)">{{ c }}</button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="grid">
+    {% for p in products %}
+    {# Чого бракує для юридично повної наліпки. Порожньо = друкувати можна.
+       Вимкнена кнопка — це підказка, а не захист: справжню відмову дає сервер
+       у /print (labels/routes.py), і вона однакова для кнопки, curl і закладки. #}
+    {% set miss = missing_by_id.get(p.id) %}
+    <div class="card{{ ' blocked' if miss }}" data-name="{{ p.name }}"
+         data-note="{{ p.note_uk or '' }}"
+         data-cat="{{ p.category or '' }}">
+      <div class="head">
+        <div>
+          <div class="title">{{ p.name }}</div>
+          {% if p.note_uk %}<div class="note">{{ p.note_uk }}</div>{% endif %}
+          {% if p.category %}<div class="cat">🗂 {{ p.category }}</div>{% endif %}
+        </div>
+        <span class="badge {{ p.type }}">{{ "заморозка" if p.type == "frozen" else "делі" }}</span>
+      </div>
+      <img id="img-{{ p.id }}" src="{{ url_for('preview', id=p.id) }}" alt="{{ p.name }}">
+      <form method="post" action="{{ url_for('do_print') }}">
+        <input type="hidden" name="id" value="{{ p.id }}">
+        <div class="row">
+          <div><label class="f">Вага, г</label>
+            <input class="w" type="text" inputmode="decimal" name="weight"
+                   id="w-{{ p.id }}" placeholder="напр. 350"
+                   oninput="upd('{{ p.id }}')"></div>
+          <div><label class="f">К-сть</label>
+            <input class="q" type="number" name="qty" value="1" min="1" max="20"></div>
+        </div>
+        <div class="row">
+          {% if miss %}
+          <button type="submit" disabled title="Наліпка неповна — друк заборонено">
+            Друк заборонено
+          </button>
+          {% else %}
+          <button type="submit">Друк</button>
+          {% endif %}
+        </div>
+      </form>
+      {% if miss %}
+      <div class="blocked-note">
+        ⛔ <b>Друкувати не можна:</b> у наліпці немає {{ miss | join(', ') }}.
+        Це обов'язкові дані харчового маркування. Перегляд вище показує, як
+        наліпка виглядає <i>зараз</i> — недрукованою. Допиши поля в
+        <a class="adminlink" style="padding:2px 8px"
+           href="{{ url_for('admin_edit', pid=p.id) }}">Керування</a>.
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="empty" id="empty">Нічого не знайдено 🤷</div>
+  <script>
+    var activeCat = "";
+    function setTab(btn) {
+      activeCat = btn.dataset.cat;
+      document.querySelectorAll('.tab').forEach(function (t) {
+        t.classList.toggle('active', t === btn);
+      });
+      applyFilter();
+    }
+    function applyFilter() {
+      var q = (document.getElementById('search').value || '').trim().toLowerCase();
+      var shown = 0;
+      document.querySelectorAll('.card').forEach(function (card) {
+        var hay = (card.dataset.name + ' ' + card.dataset.note).toLowerCase();
+        var ok = (!q || hay.indexOf(q) !== -1) &&
+                 (!activeCat || card.dataset.cat === activeCat);
+        card.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+      document.getElementById('empty').style.display = shown ? 'none' : 'block';
+    }
+    function upd(id) {
+      var w = document.getElementById('w-' + id).value;
+      document.getElementById('img-' + id).src =
+        '{{ url_for("preview") }}?id=' + encodeURIComponent(id) +
+        '&weight=' + encodeURIComponent(w) + '&t=' + Date.now();
+    }
+  </script>
+</body>
+</html>

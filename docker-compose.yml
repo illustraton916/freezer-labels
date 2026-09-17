@@ -1,13 +1,35 @@
+---
+# Автономний компоуз самого рендерера (розробка й аварійний запуск без Node).
+# Бойова система піднімається кореневим компоузом mylly-kitchen:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d
+# Тут — те саме, але без db/api.
+
 services:
   labels:
     build: .
     container_name: freezer-labels
     ports:
-      - "5000:5000"
+      # Ф2: публікується ЛИШЕ старий веб-інтерфейс і ЛИШЕ на loopback.
+      # Доступ ззовні — через тунель: ssh -L 5000:localhost:5000 root@<сервер>.
+      #
+      # Порт 5001 (/api/render, /api/print, /api/healthz) не публікується ніде й
+      # ніколи: це внутрішній сервіс для контейнера api, який ходить до нього по
+      # docker-мережі. Інструменти ганяй усередині контейнера:
+      #   docker compose exec labels python tools/smoke_api.py
+      #   docker compose exec labels python tools/golden_gate.py --mode both
+      - "127.0.0.1:5000:5000"
     volumes:
       - ./products.json:/app/products.json  # редагуєш продукти без перезбірки образу
       - ./output:/app/output              # сюди падають наліпки в режимі тесту
     environment:
       - PRINT_MODE=mock                    # ТЕСТ: не друкує, зберігає картинку у ./output
       - LABEL_SIZE=62
+      # true = старий веб-інтерфейс живий (типово, і так буде до кінця Ф7);
+      # false = роути /, /preview, /print, /admin не реєструються взагалі,
+      # сокет 5000 не відкривається, лишається тільки /api/* на 5001.
+      - ENABLE_LEGACY_UI=true
+      # Кухня живе за Europe/Helsinki, а контейнер без TZ — за UTC. /api/print
+      # дату вимагає явно, але /api/render і старий /preview ще мають fallback
+      # «сьогодні»: з цим рядком він не може дати вчорашній день.
+      - TZ=Europe/Helsinki
     restart: unless-stopped

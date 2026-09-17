@@ -1,0 +1,82 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block style %}
+  form { max-width: 720px; }
+  .field { margin-bottom: 14px; }
+  label { display: block; font-size: 14px; color: #b7bdc7; margin-bottom: 5px; }
+  input, textarea, select { width: 100%; font-size: 16px; padding: 10px;
+      border-radius: 8px; border: 1px solid #333; background: #11141a; color: #fff;
+      box-sizing: border-box; }
+  textarea { min-height: 70px; font-family: inherit; resize: vertical; }
+  fieldset { border: 1px solid #2a2f3a; border-radius: 10px; margin: 14px 0; padding: 12px; }
+  legend { color: #8b93a1; padding: 0 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .actions { display: flex; gap: 12px; margin-top: 18px; }
+{% endblock %}
+{% block body %}
+  <h1>{{ title }}</h1>
+  <form method="post" action="{{ url_for('admin_save') }}">
+    <input type="hidden" name="id" value="{{ fv.get('id','') }}">
+    <div class="field"><label>Тип наліпки</label>
+      <select id="type" name="type" onchange="toggleType()">
+        <option value="frozen" {{ 'selected' if fv.get('type')=='frozen' else '' }}>заморозка (frozen)</option>
+        <option value="deli" {{ 'selected' if fv.get('type')=='deli' else '' }}>делі (deli)</option>
+      </select></div>
+    <div class="field"><label>Назва (фінською)</label>
+      <input name="name" value="{{ fv.get('name','') }}" required></div>
+    <div class="field"><label>Примітка (укр., на наліпку не друкується)</label>
+      <input name="note_uk" value="{{ fv.get('note_uk','') }}"></div>
+    <div class="field"><label>Категорія (для групування, напр. «Салати»)</label>
+      <input name="category" value="{{ fv.get('category','') }}" list="cats">
+      <datalist id="cats">
+        {% for c in categories %}<option value="{{ c }}">{% endfor %}
+      </datalist></div>
+    <div class="grid2">
+      <div class="field"><label>Ціна, €/кг</label>
+        <input name="price_per_kg" value="{{ fv.get('price_per_kg','') }}" inputmode="decimal" required></div>
+      <div class="field"><label>Термін, днів</label>
+        <input name="shelf_life_days" value="{{ fv.get('shelf_life_days','') }}" inputmode="numeric" required></div>
+    </div>
+    <fieldset class="frozen-only"><legend>Заморозка</legend>
+      <div class="field"><label>Позначка типу</label>
+        <input name="frozen_mark" value="{{ fv.get('frozen_mark','') }}" placeholder="pakastettu tuote"></div>
+      <div class="field"><label>Склад (Ainesosat) — по рядку на пункт</label>
+        <textarea name="ingredients" placeholder="Taikina: ...&#10;Täyte: ...">{{ fv.get('ingredients','') }}</textarea></div>
+      <div class="field"><label>Алергени (друкуються жирним)</label>
+        <input name="allergens" value="{{ fv.get('allergens','') }}"></div>
+      <div class="field"><label>Інструкція (Valmistusohje)</label>
+        <textarea name="instructions">{{ fv.get('instructions','') }}</textarea></div>
+      <div class="field"><label>Зберігання (Säilytysolosuhteet)</label>
+        <textarea name="storage">{{ fv.get('storage','') }}</textarea></div>
+      <fieldset><legend>Ravintoarvo /100 g (необов'язково)</legend>
+        <div class="grid2">
+          <div class="field"><label>Energia, kJ</label><input name="n_energy_kj" value="{{ fv.get('n_energy_kj','') }}"></div>
+          <div class="field"><label>Energia, kcal</label><input name="n_energy_kcal" value="{{ fv.get('n_energy_kcal','') }}"></div>
+          <div class="field"><label>Rasvat</label><input name="n_fat" value="{{ fv.get('n_fat','') }}" placeholder="8 g"></div>
+          <div class="field"><label>joista tyydyttyneitä</label><input name="n_saturated" value="{{ fv.get('n_saturated','') }}" placeholder="2 g"></div>
+          <div class="field"><label>Hiilihydraatit</label><input name="n_carbs" value="{{ fv.get('n_carbs','') }}" placeholder="22 g"></div>
+          <div class="field"><label>Proteiinit</label><input name="n_protein" value="{{ fv.get('n_protein','') }}" placeholder="10 g"></div>
+          <div class="field"><label>Suola</label><input name="n_salt" value="{{ fv.get('n_salt','') }}" placeholder="1 g"></div>
+        </div>
+      </fieldset>
+    </fieldset>
+
+    <fieldset class="deli-only"><legend>Делі</legend>
+      <div class="field"><label>Склад (Ainekset) — одним абзацом</label>
+        <textarea name="ingredients_text">{{ fv.get('ingredients_text','') }}</textarea></div>
+    </fieldset>
+
+    <div class="actions">
+      <button class="btn save" type="submit">Зберегти</button>
+      <a class="btn" href="{{ url_for('admin') }}">Скасувати</a>
+    </div>
+  </form>
+  <script>
+    function toggleType() {
+      var t = document.getElementById('type').value;
+      document.querySelectorAll('.frozen-only').forEach(function (e) { e.style.display = (t === 'frozen') ? '' : 'none'; });
+      document.querySelectorAll('.deli-only').forEach(function (e) { e.style.display = (t === 'deli') ? '' : 'none'; });
+    }
+    toggleType();
+  </script>
+{% endblock %}
