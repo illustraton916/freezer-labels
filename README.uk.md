@@ -91,7 +91,7 @@
 ## 🔌 Сервіс для бекенду (`/api/*`, фаза Ф0)
 
 Цей застосунок — ще й **внутрішній сервіс друку** для нового Node-бекенду
-(`mylly-kitchen`). Рендерер лишається без БД, без авторизації і **без власного
+(окремий приватний репозиторій). Рендерер лишається без БД, без авторизації і **без власного
 годинника**: увесь продукт і дата приходять у payload.
 
 | Метод | Ендпоінт | Що робить |
@@ -149,9 +149,9 @@ curl -sS -X POST localhost:5001/api/render -H 'Content-Type: application/json' \
 `ingredients_text`) не друкується ні через `/api/print` (`422
 incomplete_label`), ні через старий UI (`labels/routes.py::do_print` кличе той
 самий `require_complete_label`, а сторінка друку позначає таку картку й гасить
-кнопку). До вересня 2026 guard стояв лише на `/api/*` — і порт 5000, увімкнений
-у проді з `PRINT_MODE=real`, спокійно видавав стрічку без складу (бойовий
-`kaalikarylet`). «Розбий скло» — це обхід Node-бекенду, а не обхід харчового
+кнопку). До вересня 2026 guard стояв лише на `/api/*`, тож
+порту 5000 — увімкненому в проді з `PRINT_MODE=real` — ніщо не заважало
+прийняти такий продукт. «Розбий скло» — це обхід Node-бекенду, а не обхід харчового
 маркування.
 
 `/preview` guard'а не має навмисно: показати на екрані, чого бракує, — не те
@@ -181,12 +181,16 @@ incomplete_label`), ні через старий UI (`labels/routes.py::do_print
 ### Golden-гейт (66 наліпок)
 
 22 бойові продукти × 3 ваги мають давати байт-у-байт ті самі PNG, що їх друкує
-сервер. Еталони зняті з прода (`mylly-kitchen/migrate/output/golden-hashes.json`),
+сервер. Еталони й baseline лежать в окремому приватному репозиторії разом із
+бойовими даними, з яких їх знято, тож у свіжому клоні цього репо гейт без них
+не запуститься: шляхи — це параметри (`--products`, `--golden`,
+`--expect-incomplete`), і навести гейт на свій каталог зі своїми еталонами —
+штатний спосіб ним користуватися. Еталони зняті з прода (`<репо-даних>/migrate/output/golden-hashes.json`),
 дата зафіксована (`--made-on`, типово `2026-09-16` — день зняття еталону).
 
 ```bash
 docker run --rm -e PRINT_MODE=mock \
-  -v <шлях>/mylly-kitchen/migrate:/golden:ro freezer-labels-labels:latest \
+  -v <шлях>/<репо-даних>/migrate:/golden:ro freezer-labels-labels:latest \
   python tools/golden_gate.py --mode direct          # прямий виклик make_label
 docker exec <контейнер> python tools/golden_gate.py  # direct + http + guard
 docker exec <контейнер> python tools/smoke_api.py    # контракт /api/* і старий UI

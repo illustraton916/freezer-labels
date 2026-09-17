@@ -13,3 +13,4 @@ output/
 docker-compose*.yml
 # Документація в образі не потрібна.
 README.md
+README.uk.md
