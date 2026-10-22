@@ -40,6 +40,34 @@ Dates are always printed as `18.07.2026`. Price is derived from
 `price_per_kg`: `price = weight(kg) × rate`, formatted as `x,xx €`. With no
 weight the label prints a blank line to fill in by hand.
 
+### Packaged products and EAN-13
+
+Three optional product fields cover pre-packed goods (both label types):
+
+| Field | Rule | Effect on the label |
+|---|---|---|
+| `pack_weight_g` | positive integer, grams; only together with `pack_price` | printed verbatim as the net weight when the request has no `weight_g`, or `weight_g` equals it |
+| `pack_price` | number ≥ 0, euros (like `price_per_kg`); only together with `pack_weight_g` | printed verbatim as the price; the per-kg rate stays in parentheses: `Hinta: 6,40 € (16 €/kg)` |
+| `gtin` | string of exactly 13 ASCII digits with a valid EAN-13 check digit | an EAN-13 symbol is drawn as the last block of the label |
+
+A `weight_g` that differs from `pack_weight_g` means a weighed item, and the
+label is computed exactly as before (`weight × rate`). Products without these
+fields render byte-for-byte as before — the golden gate stays 66/66. A bad
+`gtin`, or one pack field without the other, is `422 invalid_payload`; a
+`pack_price` that disagrees with `price_per_kg` by more than one cent per kg
+is reported as a warning, not an error.
+
+**Barcode geometry** (`labels/barcode.py`, `Canvas.barcode`): module width
+4 px (≈ 0.34 mm at 300 dpi, inside GS1 tolerance for a 62 mm label), data bars
+150 px tall, guard bars 160 px, quiet zones 11 modules left / 7 right, the
+452 px symbol centred horizontally, pure black on white; human-readable digits
+in the label's bold font below the bars — first digit left of the start guard,
+then 6 + 6 under the two halves. Bar geometry does **not** follow
+`LABEL_SCALE`; only the digits do. The layout trace records it as
+`op: "barcode"` with `y`, `height`, `module_px`, `bars_x` and the code.
+`tests/test_barcode.py` decodes the drawn pixels back into the 95 modules:
+`python -m unittest discover -s tests`.
+
 ## What's inside
 
 | File / module | Purpose |
@@ -55,11 +83,13 @@ weight the label prints a blank line to fill in by hand.
 | `labels/routes.py` | legacy web UI routes + the same incomplete-label guard |
 | `labels/service.py` | **HTTP service: `/api/render`, `/api/print`, `/api/healthz`** |
 | `labels/validation.py` | payload validation (closed field list) + the incomplete-label guard |
+| `labels/barcode.py` | EAN-13: check digit, validity, 95-module encoding, bar drawing (pure functions) |
 | `labels/fonts_check.py` | vendored DejaVu + SHA-256 verification at startup |
 | `labels/fonts/*.ttf` | the fonts themselves (not from `apt` — see below) |
 | `labels/templates/` | `print.html`, `admin_base/list/form.html` |
 | `tools/golden_gate.py` | the "66 labels, byte for byte as in production" gate + print-config assertion |
 | `tools/smoke_api.py` | contract smoke test for `/api/*` and the legacy UI |
+| `tests/test_barcode.py` | unit tests: EAN-13 tables, pack lines, drawn bars decoded back, golden sample (`python -m unittest discover -s tests`) |
 | `products.json` | the product catalog (see format below) |
 | `Dockerfile`, `docker-compose*.yml` | build and run |
 
@@ -335,6 +365,9 @@ Deli product:
   date + that many days.
 - `category` (optional) — free text used for the category tabs on the print
   page.
+- `gtin`, `pack_weight_g`, `pack_price` (optional, both label types) — EAN-13
+  barcode and pre-packed weight/price; rules in "Packaged products and
+  EAN-13" above. `pack_weight_g` and `pack_price` come together or not at all.
 - The set of fields above is the whole set: `labels/validation.py` treats the
   product field list as closed, so an extra or renamed key is a `422` rather
   than text quietly missing from the label.

@@ -27,12 +27,18 @@ import math
 import re
 from datetime import date
 
+from .barcode import ean13_check_digit, ean13_is_valid
+
 # Поля продукту, які існують у products.json. Закритий список: див. коментар вище.
+# Три останні — необов'язкові й нові: штрих-код EAN-13 та «пакунок» (вага і
+# ціна фасованого товару, друкуються дослівно замість вага × ставка).
 PRODUCT_FIELDS = {
     "id", "type", "name", "note_uk", "category", "price_per_kg",
     "shelf_life_days", "frozen_mark", "ingredients", "ingredients_text",
     "allergens", "instructions", "storage", "nutrition",
+    "gtin", "pack_weight_g", "pack_price",
 }
+_GTIN13 = re.compile(r"^[0-9]{13}$")
 # Керівні поля запиту (усе, що не належить самому продукту).
 # `allow_incomplete` тут НЕМА навмисно: обхід guard'а прибрано з коду повністю,
 # тож старий запит із цим полем отримає 422 invalid_payload, а не тихо пройде.
@@ -163,6 +169,33 @@ def _check_product(p, issues):
                         f"nutrition.{k}: очікується рядок з одиницею виміру, напр. "
                         f"\"18 g\" — число надрукувалось би без «g»")
 
+    # Штрих-код: рівно 13 ASCII-цифр із правильною контрольною. Один
+    # переплутаний символ дав би правдоподібний штрих-код, який сканер прочитає
+    # як ІНШИЙ товар — тому тут відмова, а не попередження. Рядок, не число:
+    # у числі провідний нуль зникає мовчки.
+    gtin = p.get("gtin")
+    if gtin is not None:
+        if not _is_text(gtin):
+            issues.append("gtin: очікується рядок із 13 цифр (EAN-13); число не "
+                          "годиться — провідний нуль у ньому зникає")
+        elif not _GTIN13.match(gtin):
+            issues.append(f"gtin: очікується рівно 13 цифр (EAN-13), отримано {gtin!r}")
+        elif not ean13_is_valid(gtin):
+            issues.append(f"gtin: неправильна контрольна цифра EAN-13 — для "
+                          f"{gtin[:12]} вона {ean13_check_digit(gtin[:12])}, "
+                          f"а не {gtin[12]}")
+
+    # Пакунок: вага й ціна фасованого товару — тільки разом. Одна без іншої
+    # означала б наліпку з вагою пакунка й чужою ціною або з ціною без ваги.
+    pw, pp = p.get("pack_weight_g"), p.get("pack_price")
+    if pw is not None and (not _is_int(pw) or pw <= 0):
+        issues.append("pack_weight_g: очікується ціле число > 0 (грамів)")
+    if pp is not None and (not _is_num(pp) or pp < 0):
+        issues.append("pack_price: очікується невід'ємне число (євро, як price_per_kg)")
+    if (pw is None) != (pp is None):
+        issues.append("pack_weight_g і pack_price задаються тільки разом — бракує "
+                      + ("pack_price" if pp is None else "pack_weight_g"))
+
 
 def validate_payload(body, require_qty=False):
     """body (розібраний JSON) -> нормалізований запит. Кидає PayloadError."""
@@ -283,4 +316,14 @@ def label_warnings(product):
         warnings.append("порожні значення харчової цінності: " + ", ".join(empty))
     if product.get("type") == "frozen" and not product.get("instructions"):
         warnings.append("немає instructions (Valmistusohje) — блок не друкується")
+    # Ціна пакунка проти ціни за кг: розходження понад 1 цент/кг означає, що на
+    # наліпці стоятимуть два числа, які між собою не сходяться. Не блокує: яка
+    # з двох цін правильна, знає власник, а не рендерер.
+    pw, pp = product.get("pack_weight_g"), product.get("pack_price")
+    per_kg = product.get("price_per_kg")
+    if _is_int(pw) and pw > 0 and _is_num(pp) and _is_num(per_kg):
+        implied = pp / pw * 1000
+        if abs(implied - per_kg) > 0.01 + 1e-9:
+            warnings.append(f"pack_price {pp} за {pw} g — це {implied:.2f} €/kg, "
+                            f"а price_per_kg = {per_kg}: на наліпці будуть обидва")
     return warnings

@@ -37,6 +37,18 @@
       <div class="field"><label>Термін, днів</label>
         <input name="shelf_life_days" value="{{ fv.get('shelf_life_days','') }}" inputmode="numeric" required></div>
     </div>
+    {# Фасований товар: вага й ціна пакунка друкуються дослівно замість вага × ставка
+       (лише разом); GTIN малює штрих-код EAN-13 унизу наліпки. Усе необов'язкове. #}
+    <fieldset><legend>Пакунок і штрих-код (необов'язково)</legend>
+      <div class="grid2">
+        <div class="field"><label>Вага пакунка, г</label>
+          <input name="pack_weight_g" value="{{ fv.get('pack_weight_g','') }}" inputmode="numeric" placeholder="напр. 400"></div>
+        <div class="field"><label>Ціна пакунка, €</label>
+          <input name="pack_price" value="{{ fv.get('pack_price','') }}" inputmode="decimal" placeholder="напр. 6,40"></div>
+      </div>
+      <div class="field"><label>Штрих-код GTIN (EAN-13, рівно 13 цифр)</label>
+        <input name="gtin" value="{{ fv.get('gtin','') }}" inputmode="numeric" maxlength="13" pattern="[0-9]{13}"></div>
+    </fieldset>
     <fieldset class="frozen-only"><legend>Заморозка</legend>
       <div class="field"><label>Позначка типу</label>
         <input name="frozen_mark" value="{{ fv.get('frozen_mark','') }}" placeholder="pakastettu tuote"></div>

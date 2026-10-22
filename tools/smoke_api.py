@@ -10,6 +10,9 @@
   print    — неповну наліпку НЕ друкує навіть з allow_incomplete;
   payload  — перейменоване/зайве поле, склад рядком замість масиву, крива дата
              і qty не там — усе 422 з поясненням, а не мовчазна наліпка;
+  barcode  — продукт із валідним gtin і пакунком дає PNG (200), вищий за той
+             самий продукт без штрих-кода, з op barcode у трасі; кривий gtin
+             або пакунок «наполовину» — 422 invalid_payload;
   trace    — режим діагностики віддає розкладку по рядках;
   ports    — Ф2: /api/* є на 5001 і НЕМАЄ на 5000, старий UI — навпаки;
   legacy   — /, /preview і /print працюють як раніше (або їх немає взагалі,
@@ -208,6 +211,50 @@ def main():
     ]
     for name, payload in cases:
         status, raw, _ = request(f"{b}/api/render", payload)
+        e = as_json(raw).get("error") or {}
+        check(f"422 invalid_payload: {name}",
+              status == 422 and e.get("code") == "invalid_payload",
+              f"{status} {e.get('code')} {e.get('issues')}")
+
+    print("render: пакунок і штрих-код EAN-13")
+    # Вигаданий код із правильною контрольною цифрою; пакунок 400 г за 6,00 € —
+    # рівно 15 €/kg, як і price_per_kg продукту GOOD (без попередження).
+    PACKED = dict(GOOD, id="smoke-packed", gtin="6400000000019",
+                  pack_weight_g=400, pack_price=6.0)
+    _, _, hdr_plain = request(f"{b}/api/render",
+                              {"product": GOOD, "made_on": "2026-01-15"})
+    status, raw, hdr = request(f"{b}/api/render",
+                               {"product": PACKED, "made_on": "2026-01-15"})
+    check("200 image/png з gtin і пакунком",
+          status == 200 and raw[:4] == b"\x89PNG", str(status))
+    check("штрих-код робить наліпку вищою",
+          int(hdr.get("X-Label-Height", 0)) > int(hdr_plain.get("X-Label-Height", 0)),
+          f"{hdr_plain.get('X-Label-Height')} → {hdr.get('X-Label-Height')}")
+    status, raw, _ = request(f"{b}/api/render?trace=1",
+                             {"product": PACKED, "made_on": "2026-01-15"})
+    d = as_json(raw)
+    tr = d.get("trace") or {}
+    ops = tr.get("ops") or []
+    bc = [o for o in ops if o["op"] == "barcode"]
+    check("у трасі рівно один op barcode з кодом і модулем 4 px",
+          len(bc) == 1 and bc[0].get("code") == "6400000000019"
+          and bc[0].get("module_px") == 4,
+          json.dumps(bc, ensure_ascii=False)[:200])
+    check("вага й ціна пакунка надруковані дослівно",
+          any(o["op"] == "text" and o["text"] == "Nettopaino: 400 g" for o in ops)
+          and any(o["op"] == "text" and o["text"] == "Hinta: 6,00 € (15 €/kg)"
+                  for o in ops))
+    check("у meta траси видно gtin і pack_applied",
+          tr.get("gtin") == "6400000000019" and tr.get("pack_applied") is True)
+    for name, product in (
+        ("крива контрольна цифра gtin", dict(PACKED, gtin="6400000000010")),
+        ("gtin з 12 цифр", dict(PACKED, gtin="640000000001")),
+        ("gtin числом, а не рядком", dict(PACKED, gtin=6400000000019)),
+        ("вага пакунка без ціни", dict(GOOD, pack_weight_g=400)),
+        ("ціна пакунка без ваги", dict(GOOD, pack_price=6.0)),
+    ):
+        status, raw, _ = request(f"{b}/api/render",
+                                 {"product": product, "made_on": "2026-01-15"})
         e = as_json(raw).get("error") or {}
         check(f"422 invalid_payload: {name}",
               status == 422 and e.get("code") == "invalid_payload",

@@ -48,3 +48,17 @@ F_H         = ImageFont.truetype(FONT_BOLD, fs(30))
 F_BODY      = ImageFont.truetype(FONT_REG, fs(26))
 F_BODY_BOLD = ImageFont.truetype(FONT_BOLD, fs(26))
 F_PRICE     = ImageFont.truetype(FONT_BOLD, fs(30))
+
+# ── Штрих-код EAN-13 ──────────────────────────────────────────────────────
+# Геометрія штрихів у пікселях @300dpi і НЕ масштабується LABEL_SCALE: масштаб
+# тут міняє лише шрифти, а ширина модуля має бути точною — 4 px ≈ 0,34 мм, у
+# допуску GS1 для наліпки 62 мм. Масштабуються тільки цифри під штрихами.
+BARCODE_MODULE_PX   = 4        # ширина одного модуля
+BARCODE_BAR_H       = 150      # висота штрихів даних (≈12,7 мм)
+BARCODE_GUARD_EXTRA = 10       # guard-штрихи на стільки нижчі за штрихи даних
+BARCODE_QUIET_LEFT  = 11       # тиха зона ліворуч, у модулях
+BARCODE_QUIET_RIGHT = 7        # тиха зона праворуч, у модулях
+BARCODE_GAP         = 10       # відступ від цінового блоку до штрих-коду
+BARCODE_TEXT_GAP    = 2        # відступ від штрихів даних до цифр під ними
+BARCODE_FONT_MAX    = fs(26)   # кегль цифр під штрихами (жирний) — звідси…
+BARCODE_FONT_MIN    = fs(16)   # …і до цього зменшувати, щоб шістка влізла

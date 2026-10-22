@@ -1,4 +1,5 @@
 """Парсинг і валідація форми продукту (адмінка) <-> словник продукту."""
+from .barcode import ean13_is_valid
 from .store import load_products, unique_slug
 
 
@@ -49,6 +50,24 @@ def build_product_from_form(form, existing_id=None):
     p["price_per_kg"] = price
     p["shelf_life_days"] = days
 
+    # Пакунок і штрих-код — спільні для обох типів, усі три необов'язкові; ті
+    # самі правила, що й у validation._check_product для /api/*.
+    gtin = (form.get("gtin") or "").strip()
+    if gtin:
+        if not ean13_is_valid(gtin):
+            raise ValueError("штрих-код (GTIN): потрібно рівно 13 цифр EAN-13 "
+                             "з правильною контрольною цифрою")
+        p["gtin"] = gtin
+    pw = (form.get("pack_weight_g") or "").strip()
+    pp = (form.get("pack_price") or "").strip()
+    if bool(pw) != bool(pp):
+        raise ValueError("вага пакунка і ціна пакунка задаються лише разом")
+    if pw:
+        p["pack_weight_g"] = parse_int(pw, "вага пакунка (г)")
+        if p["pack_weight_g"] <= 0:
+            raise ValueError("вага пакунка (г): має бути більшою за 0")
+        p["pack_price"] = parse_num(pp, "ціна пакунка (€)")
+
     if ptype == "frozen":
         fm = (form.get("frozen_mark") or "").strip()
         if fm:
@@ -84,6 +103,9 @@ def product_to_fields(p):
         "category": p.get("category", ""),
         "price_per_kg": p.get("price_per_kg", ""),
         "shelf_life_days": p.get("shelf_life_days", ""),
+        "gtin": p.get("gtin", ""),
+        "pack_weight_g": p.get("pack_weight_g", ""),
+        "pack_price": p.get("pack_price", ""),
         "frozen_mark": p.get("frozen_mark", ""),
         "ingredients": "\n".join(p.get("ingredients", [])),
         "allergens": p.get("allergens", ""),
