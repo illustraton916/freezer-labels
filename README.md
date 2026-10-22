@@ -49,6 +49,7 @@ Three optional product fields cover pre-packed goods (both label types):
 | `pack_weight_g` | positive integer, grams; only together with `pack_price` | printed verbatim as the net weight when the request has no `weight_g`, or `weight_g` equals it |
 | `pack_price` | number ≥ 0, euros (like `price_per_kg`); only together with `pack_weight_g` | printed verbatim as the price; the per-kg rate stays in parentheses: `Hinta: 6,40 € (16 €/kg)` |
 | `gtin` | string of exactly 13 ASCII digits with a valid EAN-13 check digit | an EAN-13 symbol is drawn as the last block of the label |
+| `contains_extra` | free text (optional, both label types) | printed verbatim as one more bold line right under the allergens (`frozen`) or under the ingredients (`deli`) — for the kitchen's own "contains" notes that are not EU allergens, e.g. `Sisältää myös: maitotuotteita, sokeria.` |
 
 A `weight_g` that differs from `pack_weight_g` means a weighed item, and the
 label is computed exactly as before (`weight × rate`). Products without these

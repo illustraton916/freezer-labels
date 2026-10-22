@@ -30,13 +30,15 @@ from datetime import date
 from .barcode import ean13_check_digit, ean13_is_valid
 
 # Поля продукту, які існують у products.json. Закритий список: див. коментар вище.
-# Три останні — необов'язкові й нові: штрих-код EAN-13 та «пакунок» (вага і
-# ціна фасованого товару, друкуються дослівно замість вага × ставка).
+# Чотири останні — необов'язкові й нові: штрих-код EAN-13, «пакунок» (вага і
+# ціна фасованого товару, друкуються дослівно замість вага × ставка) та
+# `contains_extra` — ще один рядок під алергенами («Sisältää myös: …»), текст
+# як є: власні позначки кухні, що не входять до 14 алергенів ЄС.
 PRODUCT_FIELDS = {
     "id", "type", "name", "note_uk", "category", "price_per_kg",
     "shelf_life_days", "frozen_mark", "ingredients", "ingredients_text",
     "allergens", "instructions", "storage", "nutrition",
-    "gtin", "pack_weight_g", "pack_price",
+    "gtin", "pack_weight_g", "pack_price", "contains_extra",
 }
 _GTIN13 = re.compile(r"^[0-9]{13}$")
 # Керівні поля запиту (усе, що не належить самому продукту).
@@ -132,7 +134,8 @@ def _check_product(p, issues):
         issues.append("shelf_life_days: обов'язкове ціле невід'ємне число")
 
     for field in ("id", "note_uk", "category", "frozen_mark", "allergens",
-                  "instructions", "storage", "ingredients_text"):
+                  "instructions", "storage", "ingredients_text",
+                  "contains_extra"):
         if field in p and p[field] is not None and not _is_text(p[field]):
             issues.append(f"{field}: очікується рядок")
 

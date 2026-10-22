@@ -67,6 +67,10 @@ def build_product_from_form(form, existing_id=None):
         if p["pack_weight_g"] <= 0:
             raise ValueError("вага пакунка (г): має бути більшою за 0")
         p["pack_price"] = parse_num(pp, "ціна пакунка (€)")
+    # Власні позначки під алергенами — для обох типів, текст як є.
+    extra = (form.get("contains_extra") or "").strip()
+    if extra:
+        p["contains_extra"] = extra
 
     if ptype == "frozen":
         fm = (form.get("frozen_mark") or "").strip()
@@ -106,6 +110,7 @@ def product_to_fields(p):
         "gtin": p.get("gtin", ""),
         "pack_weight_g": p.get("pack_weight_g", ""),
         "pack_price": p.get("pack_price", ""),
+        "contains_extra": p.get("contains_extra", ""),
         "frozen_mark": p.get("frozen_mark", ""),
         "ingredients": "\n".join(p.get("ingredients", [])),
         "allergens": p.get("allergens", ""),

@@ -214,6 +214,10 @@ def render_frozen(p, weight_g, made_on=None, best_before=None, trace=None):
         c.text(ing, F_BODY)
     if p.get("allergens"):
         c.text(p["allergens"], F_BODY_BOLD)
+    # Власні позначки (не алергени ЄС) — окремим жирним рядком одразу під
+    # алергенами, щоб закон і своє не змішувались в одному реченні.
+    if p.get("contains_extra"):
+        c.text(p["contains_extra"], F_BODY_BOLD)
     c.gap(10)
 
     if p.get("instructions"):
@@ -264,6 +268,8 @@ def render_deli(p, weight_g, made_on=None, best_before=None, trace=None):
     c.gap(12)
 
     c.text("Ainekset: " + p.get("ingredients_text", ""), F_BODY)
+    if p.get("contains_extra"):
+        c.text(p["contains_extra"], F_BODY_BOLD)
     c.gap(10)
 
     if pack_applies(p, weight_g):

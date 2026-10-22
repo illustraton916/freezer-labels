@@ -48,6 +48,8 @@
       </div>
       <div class="field"><label>Штрих-код GTIN (EAN-13, рівно 13 цифр)</label>
         <input name="gtin" value="{{ fv.get('gtin','') }}" inputmode="numeric" maxlength="13" pattern="[0-9]{13}"></div>
+      <div class="field"><label>Власні позначки під алергенами (жирний рядок, напр. «Sisältää myös: maitotuotteita, sokeria.»)</label>
+        <input name="contains_extra" value="{{ fv.get('contains_extra','') }}"></div>
     </fieldset>
     <fieldset class="frozen-only"><legend>Заморозка</legend>
       <div class="field"><label>Позначка типу</label>

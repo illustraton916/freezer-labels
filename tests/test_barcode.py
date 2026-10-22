@@ -333,6 +333,45 @@ def _golden_paths():
     return None
 
 
+class ContainsExtraTests(unittest.TestCase):
+    """`contains_extra` — рядок власних позначок під алергенами / складом."""
+
+    EXTRA = "Sisältää myös: maitotuotteita, sokeria."
+
+    def test_frozen_prints_bold_line_right_after_allergens(self):
+        base, _ = make_label_traced(DEMO_FROZEN, 400, made_on=MADE_ON)
+        img, trace = make_label_traced({**DEMO_FROZEN, "contains_extra": self.EXTRA},
+                                       400, made_on=MADE_ON)
+        texts = _texts(trace["ops"])
+        self.assertIn(self.EXTRA, texts)
+        self.assertEqual(texts.index(self.EXTRA), texts.index(DEMO_FROZEN["allergens"]) + 1)
+        block = next(o for o in trace["ops"] if o["op"] == "block" and o["source"] == self.EXTRA)
+        self.assertIn("Bold", block["font"])
+        self.assertGreater(img.height, base.height)
+
+    def test_deli_prints_line_under_ingredients(self):
+        img, trace = make_label_traced({**DEMO_DELI, "contains_extra": self.EXTRA},
+                                       350, made_on=MADE_ON)
+        # Блоки, а не рядки: «Ainekset: …» переноситься на кілька рядків.
+        sources = [o["source"] for o in trace["ops"] if o["op"] == "block"]
+        self.assertTrue(sources[0].startswith("DEMO SALAATTI"))
+        self.assertTrue(sources[1].startswith("Ainekset:"))
+        self.assertEqual(sources[2], self.EXTRA)
+
+    def test_absent_or_empty_changes_nothing(self):
+        plain = _png_sha(make_label(DEMO_FROZEN, 400, made_on=MADE_ON))
+        empty = _png_sha(make_label({**DEMO_FROZEN, "contains_extra": ""}, 400, made_on=MADE_ON))
+        self.assertEqual(plain, empty)
+
+    def test_validation_accepts_text_and_rejects_other_types(self):
+        ok = []
+        _check_product({**DEMO_FROZEN, "contains_extra": self.EXTRA}, ok)
+        self.assertEqual(ok, [])
+        issues = []
+        _check_product({**DEMO_FROZEN, "contains_extra": ["a"]}, issues)
+        self.assertTrue(any(i.startswith("contains_extra:") for i in issues), issues)
+
+
 class GoldenSampleTests(unittest.TestCase):
     """3 продукти baseline без нових полів мають давати ті самі байти, що й
     еталон із прода. Пропускається без еталону — повний доказ дає гейт."""
